@@ -10,7 +10,7 @@ public class BombBehavior : MonoBehaviour
     private TextMeshProUGUI bombText;
     private GameManager gameManager;
 
-    // Start is called before the first frame update
+
     void Start()
     {
         bombTimer = 5;
@@ -19,11 +19,14 @@ public class BombBehavior : MonoBehaviour
         bombText.SetText(bombTimer.ToString());
     }
 
+    //TickBombTimer function decreases bombTimer for the called bomb.
+    //It checks if the bombTimer is 0 and if it is it calls GameOver function from GameManager.
+    //If it is still above 0 it updates the text on the bomb.
     public void TickBombTimer()
     {
         if (bombTimer > 0)
         {
-            bombTimer -= 1;
+            bombTimer--;
         }
         if (bombTimer == 0)
         {

@@ -14,6 +14,9 @@ public class ScoreScript : MonoBehaviour
         score = 0;
         scoreMultiplier = 5;
     }
+
+    //ChangeScore function adds 5 points to the score and updates scoreText.
+    //It is called everytime a tile is destroyed. It is called from DestroyMatchesAt function in BoardScript.
     public void ChangeScore()
     {
         score += scoreMultiplier;

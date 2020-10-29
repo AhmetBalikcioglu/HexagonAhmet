@@ -1,7 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using UnityEngine;
 
+//GameState is used for when to get an input from the user and when to not.
 public enum GameState
 {
     wait,
@@ -10,26 +12,34 @@ public enum GameState
 
 public class BoardScript : MonoBehaviour
 {
+    [Header("Board Related")]
     public GameState currentState = GameState.move;
     public int width;
     public int height;
     public float offSet = 10f;
+    public float refillDelay = 0.5f;
+    public bool fillBoardWorking = false;
     public GameObject[] tiles;
     public GameObject[] bombs;
     public GameObject[,] allTiles;
-    public GameObject destroyEffect;
-    public float refillDelay = 0.5f;
 
+    private bool refillCounter = false;
+    private float xOffSet = 0.914f;
+    private float yOffSet = 1.06f;
+
+    [Header("Match Related")]
+    public GameObject destroyEffect;
+
+    [Header("Managers")]
     private ScoreScript scoreManager;
     private MatchScript matchManager;
     private GameManager gameManager;
-    private float xOffSet = 0.914f;
-    private float yOffSet = 1.06f;
-    private int bombCounter;
-    private bool refillCounter = false;
-    
-    
 
+    [Header("Bomb Related")]
+    private int bombCounter;
+    private int bombFrequency = 200;
+    
+    
     void Start()
     {
         allTiles = new GameObject[width, height];
@@ -40,6 +50,8 @@ public class BoardScript : MonoBehaviour
         BoardSetUp();
     }
 
+    //BoardSetUp function is called when the game is starting. It sets up the board with the random given tiles.
+    //It gives the rows and columns to the tiles. 
     private void BoardSetUp()
     {
         for (int i = 0; i < width; i++)
@@ -69,6 +81,9 @@ public class BoardScript : MonoBehaviour
         }
     }
 
+    //MatchesAt is a helper function. It is called in BoardSetUp. It checks if there are matches for the given column, row and tile.
+    //If there is a match it returns true else false.
+    //It is used for not making any matches when we set up the board in the start.
     private bool MatchesAt(int column, int row, GameObject tile)
     {
         if (column > 0 && row > 0)
@@ -77,13 +92,13 @@ public class BoardScript : MonoBehaviour
             {
                 if (row < height - 1)
                 {
-                    //Tek sütunlarda sol taraf kontrolü
+                    //Odd column, left side control
                     if (allTiles[column - 1, row].tag == tile.tag && allTiles[column - 1, row + 1].tag == tile.tag)
                     {
                         return true;
                     }
                 }
-                //Tek sütunlarda aşağı taraf kontrolü
+                //Odd column, bottom side control
                 if (allTiles[column - 1, row].tag == tile.tag && allTiles[column, row - 1].tag == tile.tag)
                 {
                     return true;
@@ -91,12 +106,12 @@ public class BoardScript : MonoBehaviour
             }
             else
             {
-                //Çift sütunlarda sol taraf kontrolü
+                //Even column, left side control
                 if (allTiles[column - 1, row].tag == tile.tag && allTiles[column - 1, row - 1].tag == tile.tag)
                 {
                     return true;
                 }
-                //Çift sütunlarda aşağı taraf kontrolü
+                //Even column, bottom side control
                 if (allTiles[column - 1, row - 1].tag == tile.tag && allTiles[column, row - 1].tag == tile.tag)
                 {
                     return true;
@@ -105,7 +120,7 @@ public class BoardScript : MonoBehaviour
         }
         else if (column == 1 && row == 0)
         {
-            //En alt sol üclü kontrolü
+            //Left bottom 3 control
             if (allTiles[column - 1, row + 1].tag == tile.tag && allTiles[column - 1, row].tag == tile.tag)
             {
                 return true;
@@ -114,6 +129,11 @@ public class BoardScript : MonoBehaviour
         return false;
     }
 
+    //DestroyMatchesAt is a helper function. It is used to destroy the tile in the given column and tile.
+    //It instantiates particle effects with the color of the destroyed tile.
+    //It calls ChangeScore from ScoreManager everytime a tile is destroyed.
+    //If the given column and rows tile has isMatched bool true it does all that and returns true.
+    //If it is false it returns false and does nothing.
     private bool DestroyMatchesAt(int column, int row)
     {
         if (allTiles[column, row].GetComponent<TileBehavior>().isMatched)
@@ -150,6 +170,9 @@ public class BoardScript : MonoBehaviour
         }
         return false;
     }
+
+    //DestroyMatches function goes through all the board and gives every tiles column and row to DestroyMatchesAt function.
+    //If there is a match it calls DecreaseRowCo coroutine.
     public bool DestroyMatches()
     {
         bool tempBool = false;
@@ -173,6 +196,8 @@ public class BoardScript : MonoBehaviour
         return tempBool;
     }
 
+    //DecreaseRowCo goes through the board and fills up the empty spaces with the tiles above it.
+    //When it is finished it calls FillBoardCo. refillCounter is there for calling FillBoardCo once every cycle.
     private IEnumerator DecreaseRowCo()
     {
         int nullCount = 0;
@@ -202,6 +227,9 @@ public class BoardScript : MonoBehaviour
         
     }
 
+    //RefillBoard coroutine is a helper coroutine for FillBoardCo.
+    //It goes through the board and Instantiates new tiles for the empty positions.
+    //It checks if bombCounter passed bombFrequency and Instantiates a bomb instead of a tile.
     private IEnumerator RefillBoard()
     {
         for (int i = 0; i < width; i++)
@@ -215,7 +243,7 @@ public class BoardScript : MonoBehaviour
                     {
                         tempPosition = new Vector2(i * xOffSet, j * yOffSet + yOffSet / 2f + offSet);
                     }
-                    if (bombCounter >= 20)
+                    if (bombCounter >= bombFrequency)
                     {
                         int bombToUse = Random.Range(0, bombs.Length);
                         GameObject bomb = Instantiate(bombs[bombToUse], tempPosition, Quaternion.identity);
@@ -223,6 +251,7 @@ public class BoardScript : MonoBehaviour
                         bomb.GetComponent<TileBehavior>().row = j;
                         bomb.GetComponent<TileBehavior>().column = i;
                         bomb.GetComponent<TileBehavior>().isBomb = true;
+                        bomb.transform.SetParent(this.transform);
                         bombCounter = 0;
                     }
                     else
@@ -232,6 +261,7 @@ public class BoardScript : MonoBehaviour
                         allTiles[i, j] = tile;
                         tile.GetComponent<TileBehavior>().row = j;
                         tile.GetComponent<TileBehavior>().column = i;
+                        tile.transform.SetParent(this.transform);
                     }
                 }
             }
@@ -239,6 +269,10 @@ public class BoardScript : MonoBehaviour
         yield return new WaitForSeconds(0f);
     }
 
+    //MatchesOnBoard function is a helper function used in FillBoardCo.
+    //It calls MatchSearch function from Match Manager.
+    //Then it goes through the board and checks if there is a tile with isMatched value true.
+    //If there is it returns true else false.
     private bool MatchesOnBoard()
     {
         matchManager.MatchSearch();
@@ -258,9 +292,14 @@ public class BoardScript : MonoBehaviour
         return false;
     }
 
+    //FillBoardCo coroutine is used for filling up the board using RefillBoard, checking if there is a match
+    //on the board with MatchesOnBoard, destroys thoes matches with DestroyMatches, calls RefillBoard again and then
+    //checks the matches with MatchesOnBoard. This loop continues till there is no matches on board.
+    //When this loop finishes it checks for a deadlock using IsDeadLocked function. If there is a deadlock it calls
+    //GameOver from GameManager and ends the game.
     private IEnumerator FillBoardCo()
     {
-        //currentState = GameState.wait;
+        fillBoardWorking = true;
         StartCoroutine(RefillBoard());
         yield return new WaitForSeconds(refillDelay);
         
@@ -278,8 +317,11 @@ public class BoardScript : MonoBehaviour
         }
         currentState = GameState.move;
         refillCounter = false;
+        fillBoardWorking = false;
     }
 
+    //SwitchTiles is a helper function.
+    //It is used for switching tile positions on the grid. It uses given column, row and the direction to do it.
     private void SwitchTiles(int column, int row, Vector2 direction)
     {
         //Take the first piece and save it in a holder
@@ -289,6 +331,9 @@ public class BoardScript : MonoBehaviour
         //Set the first tile to be the second tile
         allTiles[column, row] = holder;
     }
+
+    //GetNearbyTilesForDeadlock is a helper function.
+    //It checks the tags for the given tiles and returns true if they are the same, else not.
     private bool GetNearbyTilesForDeadlock(GameObject tile1, GameObject tile2, GameObject tile3)
     {
         if (tile1 != null && tile2 != null && tile3 != null)
@@ -301,6 +346,9 @@ public class BoardScript : MonoBehaviour
         return false;
     }
 
+    //MatchSearchForDeadlock is almost the same function with MatchSearch in MatchScript.
+    //Difference is it only checks for a potential matches and returns true if there is one.
+    //It doesn't puts the tiles isMatched bool to true.
     private bool MatchSearchForDeadlock()
     {
         GameObject currentTile;
@@ -316,11 +364,11 @@ public class BoardScript : MonoBehaviour
                 if (allTiles[i, j] != null)
                 {
                     currentTile = allTiles[i, j];
-                    //Çift sütun kontrolü
+                    //Even column control
                     if (i % 2 == 0)
                     {
                         rightTile = allTiles[i + 1, j];
-                        //Çift sütunlarda en üst sıra kontrolü
+                        //Even column, highest row control
                         if (j != height - 1)
                         {
                             upTile = allTiles[i, j + 1];
@@ -330,7 +378,7 @@ public class BoardScript : MonoBehaviour
                             }
 
                         }
-                        //Çift sütunlarda en alt sıra kontrolü
+                        //Even column, lowest row control
                         if (j != 0)
                         {
                             rightDownTile = allTiles[i + 1, j - 1];
@@ -342,7 +390,7 @@ public class BoardScript : MonoBehaviour
                     }
                     else if (j != height - 1)
                     {
-                        //Tek sütunlarda en üst sıra kontrolü
+                        //Odd column control without highest row
                         rightTile = allTiles[i + 1, j];
                         upTile = allTiles[i, j + 1];
                         rightUpTile = allTiles[i + 1, j + 1];
@@ -361,6 +409,9 @@ public class BoardScript : MonoBehaviour
         return false;
     }
 
+    //SwitchAndCheck is a helper function.
+    //It switches the tile with the direction given using SwitchTiles, searches for a match using MatchSearchForDeadlock,
+    //if there is a match it switches the tile back and returns true, else switches the tile back and returns false.
     private bool SwitchAndCheck(int column, int row, Vector2 direction)
     {
         if (column + direction.x >= 0 && column + direction.x < width && row + direction.y >= 0 && row + direction.y < height)
@@ -377,6 +428,8 @@ public class BoardScript : MonoBehaviour
         return false;
     }
 
+    //IsDeadLocked goes through the whole board and checks for a potential deadlock using SwitchAndCheck
+    //function for every tile on the board.
     private bool IsDeadLocked()
     {
         for (int i = 0; i < width; i++)
@@ -387,10 +440,13 @@ public class BoardScript : MonoBehaviour
                 {
                     if (i % 2 == 0)
                     {
+                        //Even column
                         for (int k = -1; k < 2; k++)
                         {
+                            //Column switch
                             for (int l = -1; l < 1; l++)
                             {
+                                //Row switch
                                 if (!(l == 0 && k == 0))
                                 {
                                     if (SwitchAndCheck(i, j, new Vector2(k, l)))
@@ -400,6 +456,7 @@ public class BoardScript : MonoBehaviour
                                 }
                                 else if (SwitchAndCheck(i, j, new Vector2(k, l + 1)))
                                 {
+                                    //Above switch
                                     return false;
                                 }
                             }
@@ -407,10 +464,13 @@ public class BoardScript : MonoBehaviour
                     }
                     else
                     {
+                        //Odd column
                         for (int k = -1; k < 2; k++)
                         {
+                            //Column switch
                             for (int l = 0; l < 2; l++)
                             {
+                                //Row switch
                                 if (!(l == 0 && k == 0))
                                 {
                                     if (SwitchAndCheck(i, j, new Vector2(k, l)))
@@ -420,6 +480,7 @@ public class BoardScript : MonoBehaviour
                                 }
                                 else if (SwitchAndCheck(i, j, new Vector2(k, l - 1)))
                                 {
+                                    //Bottom switch
                                     return false;
                                 }
                             }
@@ -431,6 +492,8 @@ public class BoardScript : MonoBehaviour
         return true;
     }
 
+    //DestroyAll coroutine is called when the game is over.
+    //It destroys all the tiles, bombs and instantiates particles effects according to the colors.
     public IEnumerator DestroyAll()
     {
         currentState = GameState.wait;

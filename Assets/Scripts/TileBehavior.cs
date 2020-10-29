@@ -6,23 +6,28 @@ using UnityEngine;
 public class TileBehavior : MonoBehaviour
 {
     [Header("Board Related")]
+    private BoardScript board;
     public int column;
     public int row;
     public float targetY;
-    public bool isMatched = false;
+    public bool isMatched;
     public bool needsToMove;
     public GameObject[] selectedTiles;
+
+    private float xOffSet = 0.914f;
+    private float yOffSet = 1.06f;
+
+    [Header("Turn Related")]
     public float turningWay;
     public bool isTurning;
 
-    private MatchScript matchManager;
-    private BoardScript board;
-    private InputScript inputManager;
-    private float xOffSet = 0.914f;
-    private float yOffSet = 1.06f;
     private int turn1;
     private int turn2;
+    private int turnCounter = 25;
     private float rotateSpeed = 240f;
+
+    private MatchScript matchManager;
+    private InputScript inputManager;    
     private Vector2 tempPosition;
     
     [Header("Bomb Related")]
@@ -35,13 +40,15 @@ public class TileBehavior : MonoBehaviour
         matchManager = FindObjectOfType<MatchScript>();
         inputManager = FindObjectOfType<InputScript>();
         selectedTiles = new GameObject[3];
+        isMatched = false;
         isTurning = false;
         needsToMove = true;
         turn1 = 0;
         turn2 = 0;
-        //column = Convert.ToInt32(transform.position.x / xOffSet);
-        //row = column % 2 == 0 ? Convert.ToInt32(transform.position.y / yOffSet) : Convert.ToInt32((transform.position.y - 0.53f) / yOffSet);
     }
+
+    //Update checks if needsToMove bool value is true. True means tile is not where it is supposed to be
+    //in position. It checks for column and row and Lerps the tile to its right position.
     private void Update()
     {
         if (needsToMove)
@@ -65,9 +72,9 @@ public class TileBehavior : MonoBehaviour
                 needsToMove = false;
             }
         }
-
     }
-    // Update is called once per frame
+
+    //FixedUpdate checks isTurning value and calls MovePiecesCo coroutine.
     void FixedUpdate()
     {
         if (isTurning)
@@ -75,6 +82,22 @@ public class TileBehavior : MonoBehaviour
             StartCoroutine(MovePiecesCo());
         }
     }
+
+    //OnMouseDown calls MouseDown function from InputScript and gives this tile.
+    public void OnMouseDown()
+    {
+        inputManager.MouseDown(this);
+    }
+
+    //OnMouseUp calls MouseDown function from InputScript and gives this tile.
+    public void OnMouseUp()
+    {
+        inputManager.MouseUp(this);
+    }
+
+    //ClosestTiles function calculates the distance from firstTouchPosition to all tiles.
+    //It selects the tile that is touched and 2 tiles closest to the firstTouchPosition
+    //Sometimes there is odd behavior. We check that odd behavior and not let it happen with dontSelect bool.
     public void ClosestTiles()
     {
         selectedTiles[0] = this.gameObject;
@@ -110,6 +133,11 @@ public class TileBehavior : MonoBehaviour
         }
     }
 
+
+    //MovePiecesCo coroutine is called in FixedUpdate if isTurning bool is true for the tile.
+    //It rotates the selected 3 tiles until one of them gets a match or it is a full 360.
+    //If there is a match it means 1 player move happened and if there are bombs on the screen
+    //it ticks bomb timer.
     private IEnumerator MovePiecesCo()
     {
         if (selectedTiles[0] != null && selectedTiles[1] != null && selectedTiles[2] != null)
@@ -121,7 +149,7 @@ public class TileBehavior : MonoBehaviour
             }
             turn1++;
             turn2++;
-            if (turn1 == 25)
+            if (turn1 == turnCounter)
             {
                 SnapTiles();
                 FindMatches();
@@ -145,7 +173,7 @@ public class TileBehavior : MonoBehaviour
                         }
                     }
                 }
-                else if (turn2 < 75)
+                else if (turn2 < turnCounter * 3)
                 {
                     isTurning = true;
                 }
@@ -158,11 +186,13 @@ public class TileBehavior : MonoBehaviour
                     }
                     yield return new WaitForSeconds(.5f);
                     board.currentState = GameState.move;
-                    Debug.Log("MovePiecesCo");
                 }
             }
         }
     }
+
+    //SnapTiles function is called by MovePiecesCo every 120 degree rotation.
+    //It calculates the new column and row for the rotating tiles and snaps them in place.
     void SnapTiles()
     {
         foreach (GameObject tile in selectedTiles)
@@ -175,6 +205,8 @@ public class TileBehavior : MonoBehaviour
         }
     }
 
+    //FindMatches is a caller function for MatchSearch function from MatchScript
+    //It is called by MovePiecesCo every 120 degree rotation.
     void FindMatches()
     {
         matchManager.MatchSearch();
